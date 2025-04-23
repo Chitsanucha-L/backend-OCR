@@ -12,7 +12,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "Authorization"],
 )
 
 
@@ -20,8 +20,8 @@ app.add_middleware(
 pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"  # Path สำหรับ Render
 
 @app.get("/")
-def read_root():
-    return {"Hello": "World"}
+def ping():
+    return {"status": "ok"}
 
 @app.post("/ocr/")
 async def ocr(file: UploadFile = File(...)):
@@ -37,6 +37,14 @@ async def ocr(file: UploadFile = File(...)):
     
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+    
+@app.exception_handler(Exception)
+async def cors_error_handler(request, exc):
+    return JSONResponse(
+        status_code=500,
+        content={"error": str(exc)},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 if __name__ == "__main__":
     import uvicorn
