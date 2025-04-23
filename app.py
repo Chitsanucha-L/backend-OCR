@@ -9,6 +9,10 @@ app = FastAPI()
 # ตั้งค่าพาธของ Tesseract
 pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"  # Path สำหรับ Render
 
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
 @app.post("/ocr/")
 async def ocr(file: UploadFile = File(...)):
     try:
