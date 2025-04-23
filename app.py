@@ -23,7 +23,7 @@ pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"  # Path สำห�
 def ping():
     return {"status": "ok"}
 
-@app.post("/ocr/")
+@app.post("/ocr")
 async def ocr(file: UploadFile = File(...)):
     try:
         # อ่านไฟล์ภาพจาก request
@@ -37,14 +37,6 @@ async def ocr(file: UploadFile = File(...)):
     
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-    
-@app.exception_handler(Exception)
-async def cors_error_handler(request, exc):
-    return JSONResponse(
-        status_code=500,
-        content={"error": str(exc)},
-        headers={"Access-Control-Allow-Origin": "*"}
-    )
 
 if __name__ == "__main__":
     import uvicorn
