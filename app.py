@@ -214,7 +214,7 @@ async def ocr(file: UploadFile = File(...)):
         open_cv_image = open_cv_image[:, :, ::-1].copy()  # Convert RGB to BGR
 
         # Perform OCR and processing
-        processed_image = ocr(open_cv_image)
+        processed_image = await ocr(open_cv_image)
 
         # Convert back to PIL Image to return via FastAPI
         processed_pil_image = Image.fromarray(processed_image)
