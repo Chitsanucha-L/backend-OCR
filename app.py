@@ -69,12 +69,9 @@ def edge_detection(image, thold1 = 80, thold2 = 110):
     edges = cv2.bitwise_or(edges, b_edge)
     edges = cv2.bitwise_or(edges, l_edge)
     cross_kernel3 = cv2.getStructuringElement(cv2.MORPH_CROSS, (3,3))
-    # edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, cross_kernel3)
     edges = cv2.dilate(edges, cross_kernel3)
     rect_kernel3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, rect_kernel3)
-    # rect_kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-    # edges = cv2.erode(edges, rect_kernel2)
     ellipse_kernel5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     mid = cv2.erode(edges, ellipse_kernel5)
     edges = cv2.subtract(edges, mid)
@@ -233,10 +230,8 @@ def region_annotate(image, prob, comp, padding_size = 50):
     boxes = []
     texts = []
 
-    # prob[prob > 1] = prob[prob > 1] - 1
     prob = cv2.GaussianBlur(prob, (15, 15), 15)
     prob = cv2.GaussianBlur(prob, (15, 15), 15)
-    # prob[prob > 1] = prob[prob > 1] - 1
     prob = thresholding(prob)
 
     analysis = cv2.connectedComponentsWithStats(prob,
@@ -258,9 +253,7 @@ def region_annotate(image, prob, comp, padding_size = 50):
 
 
         crop = og[top:bottom, left:right]
-        # plt.imshow(crop)
-        # plt.show()
-        # region = crop
+        
         region = grayscale(crop)
         l = grayscale(crop)
         r = red_channel(crop)
@@ -277,19 +270,17 @@ def region_annotate(image, prob, comp, padding_size = 50):
         region = grads[best]
         region = cv2.blur(region,(3,3))
         region = thresholding(region)
-        # region = np.pad(region, padding_size, mode='constant', constant_values=0)
         temp = np.zeros_like(prob)
         temp[top:bottom, left:right] = region
         region = temp
 
         rawtext = pytesseract.image_to_string(region, lang='tha')
         proctext = ''.join(rawtext.strip().split('\n'))
-        re.sub('[^ก-๙0-9- ]', '', proctext)
+        proctext = re.sub('[^ก-๙0-9- ]', '', proctext)
+
         if len(proctext):
             texts.append(proctext)
             boxes.append((top, left, bottom, right))
-
-        # print(pytesseract.image_to_boxes(region, lang='tha'))
 
     for box, text in zip(boxes, texts):
         top, left, bottom, right = box
@@ -304,20 +295,23 @@ def region_annotate(image, prob, comp, padding_size = 50):
     annotated = og
     return annotated
 
-def process_ocr(image, suffix=''):
+def process_ocr(image):
     logging.debug("Starting OCR processing")
+
     edges = edge_detection(image)
     logging.debug("Edge detection completed")
-    cv2.imwrite(f'edges{suffix}.tif', edges)
+
     comps = filtered_component(image, edges)
     logging.debug("Filtered component completed")
-    cv2.imwrite(f'comps{suffix}.tif', cv2.equalizeHist(comps))
+
     probs = text_region(image, comps)
-    logging.debug("Text region detected")
-    cv2.imwrite(f'probs{suffix}.tif', cv2.equalizeHist(probs))
+    logging.debug("Text region detected")   
+
     annotated = region_annotate(image, probs, comps)
     logging.debug("Region annotation completed")
+
     return annotated
+
 
 @app.get("/")
 def ping():
@@ -335,7 +329,7 @@ async def ocr(file: UploadFile = File(...)):
         suffix = "_debug"
 
         # Perform OCR and processing
-        processed_image = process_ocr(image, suffix=suffix)
+        processed_image = process_ocr(image)
 
         # Step 5: Save the image with bounding boxes to disk (debug only)
         cv2.imwrite(f"annotated{suffix}.png", processed_image)
