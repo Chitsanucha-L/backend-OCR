@@ -64,7 +64,7 @@ def text_region(image, edges):
         crop_bin = thresholding(crop_gray)
 
         # แปลง crop เป็น OCR
-        rawtext = pytesseract.image_to_string(crop_bin, lang='tha')
+        rawtext = pytesseract.image_to_string(crop_bin, lang='tha', config='--psm 6')  # PSM 6: Assume a single uniform block of text
         proctext = "".join(rawtext.split())
         
         if len(proctext) > 0:
@@ -92,7 +92,7 @@ def region_annotate(image, prob, edges):
         region = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
         region = thresholding(region)
 
-        rawtext = pytesseract.image_to_string(region, lang='tha')
+        rawtext = pytesseract.image_to_string(region, lang='tha', config='--psm 6')  # PSM 6: Assume a single uniform block of text
         proctext = ''.join(rawtext.strip().split('\n'))
         proctext = re.sub('[^ก-๙0-9- ]', '', proctext)
 
@@ -100,12 +100,17 @@ def region_annotate(image, prob, edges):
             texts.append(proctext)
             boxes.append((x, y, x+w, y+h))
 
+    # Annotate text on image
     for box, text in zip(boxes, texts):
         x1, y1, x2, y2 = box
         cv2.rectangle(og, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-        fontpath = "fonts/ChakraPetch-Bold.ttf"
-        font = ImageFont.truetype(fontpath, 32)
+        try:
+            fontpath = "fonts/ChakraPetch-Bold.ttf"
+            font = ImageFont.truetype(fontpath, 32)
+        except IOError:
+            font = ImageFont.load_default()  # Default font if the custom font is unavailable
+            
         img_pil = Image.fromarray(og)
         draw = ImageDraw.Draw(img_pil)
         draw.text((x1, y1),  text, font=font, fill=(128, 255, 0, 0))
