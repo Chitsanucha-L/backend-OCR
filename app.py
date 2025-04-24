@@ -201,12 +201,19 @@ def region_annotate(image, prob, comp, padding_size=50):
 
     return og
 
-def process_image(image: np.ndarray) -> np.ndarray:
+def process_ocr(image, suffix=''):
     edges = edge_detection(image)
+    cv2.imwrite(f'edges{suffix}.tif', edges)
+
     comps = filtered_component(image, edges)
-    prob = text_region(image, comps)
-    result = region_annotate(image, prob, comps)
-    return result
+    cv2.imwrite(f'comps{suffix}.tif', cv2.equalizeHist(comps))
+
+    probs = text_region(image, comps)
+    cv2.imwrite(f'probs{suffix}.tif', cv2.equalizeHist(probs))
+
+    annotated = region_annotate(image, probs, comps)
+    return annotated
+
 
 @app.get("/")
 def ping():
@@ -221,7 +228,7 @@ async def ocr(file: UploadFile = File(...)):
         open_cv_image = open_cv_image[:, :, ::-1].copy()  # Convert RGB to BGR
 
         # Perform OCR and processing
-        processed_image = process_image(open_cv_image)
+        processed_image = process_ocr(open_cv_image, suffix="_debug")  # You can set a timestamp or unique ID instead
 
         # Convert back to PIL Image to return via FastAPI
         processed_pil_image = Image.fromarray(processed_image)
