@@ -291,7 +291,7 @@ def region_annotate(image, prob, comp, padding_size = 50):
         top, left, bottom, right = box
         cv2.rectangle(og, (left, top), (right, bottom), (0, 255, 0), 2)
 
-        fontpath = "ChakraPetch-Bold.ttf"
+        fontpath = "fonts/ChakraPetch-Bold.ttf"
         font = ImageFont.truetype(fontpath, 32)
         img_pil = Image.fromarray(og)
         draw = ImageDraw.Draw(img_pil)
