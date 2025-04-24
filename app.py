@@ -1,5 +1,6 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.responses import JSONResponse
 import numpy as np
 import cv2
@@ -46,6 +47,15 @@ def extract_text_regions(image):
             texts.append(data['text'][i])
     return boxes, texts
 
+def annotate_image(image, boxes, texts):
+    for i, box in enumerate(boxes):
+        x1, y1, x2, y2 = box
+        # Draw bounding box
+        cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        # Draw text
+        cv2.putText(image, texts[i], (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+    return image
+
 @app.post("/ocr")
 async def ocr_api(file: UploadFile = File(...)):
     try:
@@ -53,6 +63,10 @@ async def ocr_api(file: UploadFile = File(...)):
         image = resize_image(image)
         preprocessed = preprocess_image(image)
         boxes, texts = extract_text_regions(preprocessed)
-        return JSONResponse(content={"boxes": boxes, "texts": texts})
+        annotated_image = annotate_image(image.copy(), boxes, texts)
+
+        # Convert annotated image to PNG
+        _, buffer = cv2.imencode('.png', annotated_image)
+        return StreamingResponse(io.BytesIO(buffer.tobytes()), media_type="image/png")
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
