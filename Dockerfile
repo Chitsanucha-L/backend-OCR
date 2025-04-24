@@ -2,8 +2,12 @@ FROM python:3.12-slim
 
 # ติดตั้ง Tesseract และภาษาไทย
 RUN apt-get update && \
-    apt-get install -y tesseract-ocr tesseract-ocr-tha && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y tesseract-ocr tesseract-ocr-tha \
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
 
 # ติดตั้ง Python dependencies
 WORKDIR /app
