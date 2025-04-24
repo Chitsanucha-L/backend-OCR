@@ -1,13 +1,11 @@
 from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import pytesseract
+from fastapi.responses import JSONResponse
 import numpy as np
 import cv2
+import pytesseract
+from PIL import Image
 import io
-import logging
-
-logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 
@@ -19,63 +17,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ตั้งค่า path ของ Tesseract
-pytesseract.pytesseract.tesseract_cmd = "/usr/bin/tesseract"
+def read_imagefile(file) -> np.ndarray:
+    image = Image.open(io.BytesIO(file))
+    return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 
-# Helper functions
+def resize_image(image, max_width=1000):
+    h, w = image.shape[:2]
+    if w > max_width:
+        scale = max_width / w
+        new_size = (int(w * scale), int(h * scale))
+        return cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
+    return image
 
 def preprocess_image(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    binary = cv2.adaptiveThreshold(
-        gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 2
-    )
-    return binary
+    blur = cv2.medianBlur(gray, 3)  # เบากว่า gaussian
+    return blur
 
-def detect_text_boxes(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 50, 150)
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+def extract_text_regions(image):
+    # OCR พร้อมตำแหน่งกล่องข้อความ
+    data = pytesseract.image_to_data(image, lang='tha', output_type=pytesseract.Output.DICT)
     boxes = []
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        if w > 30 and h > 20:
-            boxes.append((x, y, x+w, y+h))
-    return boxes
-
-def annotate_image(image, boxes):
-    config = "--oem 1 --psm 11"
-    for (x1, y1, x2, y2) in boxes:
-        roi = image[y1:y2, x1:x2]
-        roi_pre = preprocess_image(roi)
-        text = pytesseract.image_to_string(roi_pre, lang="tha", config=config)
-        text = ''.join(text.strip().splitlines())
-        if text:
-            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(image, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.8, (0, 255, 0), 2, cv2.LINE_AA)
-    return image
-
-@app.get("/")
-def ping():
-    return {"status": "ok"}
+    texts = []
+    for i in range(len(data['text'])):
+        if int(data['conf'][i]) > 30 and data['text'][i].strip():
+            (x, y, w, h) = (data['left'][i], data['top'][i], data['width'][i], data['height'][i])
+            boxes.append([x, y, x + w, y + h])
+            texts.append(data['text'][i])
+    return boxes, texts
 
 @app.post("/ocr")
-async def ocr(file: UploadFile = File(...)):
+async def ocr_api(file: UploadFile = File(...)):
     try:
-        image_data = await file.read()
-        nparr = np.frombuffer(image_data, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-        boxes = detect_text_boxes(image)
-        result_image = annotate_image(image, boxes)
-
-        _, buffer = cv2.imencode('.png', result_image)
-        return StreamingResponse(io.BytesIO(buffer.tobytes()), media_type="image/png")
-
+        image = read_imagefile(await file.read())
+        image = resize_image(image)
+        preprocessed = preprocess_image(image)
+        boxes, texts = extract_text_regions(preprocessed)
+        return JSONResponse(content={"boxes": boxes, "texts": texts})
     except Exception as e:
-        logging.error(f"OCR Error: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+        return JSONResponse(content={"error": str(e)}, status_code=500)
