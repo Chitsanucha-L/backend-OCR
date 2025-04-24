@@ -322,9 +322,11 @@ async def ocr(file: UploadFile = File(...)):
 
         # Step 3: Decode the image using OpenCV
         image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        
+        suffix = "_debug"
 
         # Perform OCR and processing
-        processed_image = process_ocr(image, suffix="_debug")
+        processed_image = process_ocr(image, suffix=suffix)
 
         # Step 5: Save the image with bounding boxes to disk (debug only)
         cv2.imwrite(f"annotated{suffix}.png", processed_image)
