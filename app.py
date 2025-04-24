@@ -194,31 +194,21 @@ def text_region(image, components):
             continue
 
         comp = (components == comp_idx).astype('uint8')*255
-        l, r, t, b = 0,0,0,0
-        for row in range(og.shape[0]):
-            if (np.sum(comp[row, :]) > 0):
-                if t == 0:
-                    t = row
-                b = row
-        for col in range(og.shape[1]):
-            if (np.sum(comp[:, col]) > 0):
-                if l == 0:
-                    l = col
-                r = col
-        crop = og[t:b, l:r]
+        x, y, w, h = cv2.boundingRect(comp)
+
+        # กรอง components ที่เล็กเกินไป
+        if w < 20 or h < 20:  
+            continue
+
+        crop = og[y:y+h, x:x+w]
         crop = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
         crop = thresholding(crop)
 
-        ocr_img = np.zeros_like(components, dtype="uint8")
-        for row in range(t, b):
-            for col in range(l, r):
-                ocr_img[row, col] = crop[row-t, col-l]
-        rawtext = pytesseract.image_to_string(ocr_img, lang='tha')
+        # แปลง crop เป็น OCR
+        rawtext = pytesseract.image_to_string(crop, lang='tha')
         proctext = "".join(rawtext.split())
         if len(proctext) > 0:
-            for row in range(t, b):
-                for col in range(l, r):
-                    region_prob[row, col] += 1
+            region_prob[y:y+h, x:x+w] += 1
 
     return region_prob
 
