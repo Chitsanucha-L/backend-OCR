@@ -7,6 +7,9 @@ import numpy as np
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 app = FastAPI()
 
@@ -301,13 +304,18 @@ def region_annotate(image, prob, comp, padding_size = 50):
     return annotated
 
 def process_ocr(image, suffix=''):
+    logging.debug("Starting OCR processing")
     edges = edge_detection(image)
+    logging.debug("Edge detection completed")
     cv2.imwrite(f'edges{suffix}.tif', edges)
     comps = filtered_component(image, edges)
+    logging.debug("Filtered component completed")
     cv2.imwrite(f'comps{suffix}.tif', cv2.equalizeHist(comps))
     probs = text_region(image, comps)
+    logging.debug("Text region detected")
     cv2.imwrite(f'probs{suffix}.tif', cv2.equalizeHist(probs))
     annotated = region_annotate(image, probs, comps)
+    logging.debug("Region annotation completed")
     return annotated
 
 @app.get("/")
