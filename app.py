@@ -201,6 +201,13 @@ def region_annotate(image, prob, comp, padding_size=50):
 
     return og
 
+def process_image(image: np.ndarray) -> np.ndarray:
+    edges = edge_detection(image)
+    comps = filtered_component(image, edges)
+    prob = text_region(image, comps)
+    result = region_annotate(image, prob, comps)
+    return result
+
 @app.get("/")
 def ping():
     return {"status": "ok"}
@@ -214,7 +221,7 @@ async def ocr(file: UploadFile = File(...)):
         open_cv_image = open_cv_image[:, :, ::-1].copy()  # Convert RGB to BGR
 
         # Perform OCR and processing
-        processed_image = await ocr(open_cv_image)
+        processed_image = process_image(open_cv_image)
 
         # Convert back to PIL Image to return via FastAPI
         processed_pil_image = Image.fromarray(processed_image)
